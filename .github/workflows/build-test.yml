@@ -11,6 +11,9 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
 
     steps:
       - name: Checkout
