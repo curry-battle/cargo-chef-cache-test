@@ -47,9 +47,12 @@ COPY --from=planner /build/recipe.json recipe.json
 
 # 依存関係のビルド
 # sccacheキャッシュをマウントして、cargo chef cookで依存関係をビルド
+# cargo lambdaのターゲットアーキテクチャはデフォルトでは x86_64-unknown-linux-gnu なので
+# cargo chef cookでも同じターゲットを指定して /target/x86_64-unknown-linux-gnu/releaseにキャッシュされるようにする
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,target=/sccache,sharing=locked \
+    # 依存関係のビルド失敗は無視して先に進む
     (cargo chef cook --release --target x86_64-unknown-linux-gnu --recipe-path recipe.json || true) && \
     sccache --show-stats
 
