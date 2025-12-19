@@ -40,11 +40,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Create logs directory
-        run: mkdir -p logs
-
       - name: Initial build (no cache)
-        id: build1
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -53,11 +49,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Save initial build log
-        run: echo "${{ steps.build1.outputs.metadata }}" > logs/01_initial_build.log
-
       - name: Rebuild (full cache)
-        id: build2
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -66,15 +58,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Save rebuild log
-        run: echo "${{ steps.build2.outputs.metadata }}" > logs/02_rebuild_no_change.log
-
       - name: Source code change
         run: |
           sed -i 's/Hello/Hi/g' lambda/src/http_handler.rs
 
       - name: Build with source change (dependency cache)
-        id: build3
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -82,13 +70,3 @@ jobs:
           tags: cargo-lambda-test:v3
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Save source change build log
-        run: echo "${{ steps.build3.outputs.metadata }}" > logs/03_source_change.log
-
-      - name: Upload build logs
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: build-logs
-          path: logs/
