@@ -1,0 +1,79 @@
+name: Cargo Lambda Build Test
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Delete all GHA caches
+        run: |
+          gh extension install actions/gh-actions-cache
+
+          echo "Fetching list of cache keys"
+          cacheKeys=$(gh actions-cache list -R $REPO -B $BRANCH | cut -f 1)
+
+          set +e
+          echo "Deleting caches..."
+          for cacheKey in $cacheKeys; do
+            gh actions-cache delete $cacheKey -R $REPO -B $BRANCH --confirm
+          done
+          echo "Done"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create logs directory
+        run: mkdir -p logs
+
+      - name: Initial build (no cache)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: cargo-lambda-test:v1
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Rebuild (full cache)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: cargo-lambda-test:v2
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Source code change
+        run: |
+          sed -i 's/Hello/Hi/g' lambda/src/http_handler.rs
+
+      - name: Build with source change (dependency cache)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: cargo-lambda-test:v3
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Upload build logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-logs
+          path: logs/
